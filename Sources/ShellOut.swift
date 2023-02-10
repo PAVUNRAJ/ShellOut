@@ -6,6 +6,8 @@
 
 import Foundation
 import Dispatch
+import UIKit
+import ShellOut
 
 // MARK: - API
 
