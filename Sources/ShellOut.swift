@@ -37,11 +37,7 @@ import Dispatch
 ) throws -> String {
     let command = "cd \(path.escapingSpaces) && \(command) \(arguments.joined(separator: " "))"
 
-    return try process.launchBash(
-        with: command,
-        outputHandle: outputHandle,
-        errorHandle: errorHandle
-    )
+    return 
 }
 
 /**
@@ -73,7 +69,7 @@ import Dispatch
     return try shellOut(
         to: command,
         at: path,
-        process: process,
+//         process: process,
         outputHandle: outputHandle,
         errorHandle: errorHandle
     )
@@ -99,14 +95,14 @@ import Dispatch
 @discardableResult public func shellOut(
     to command: ShellOutCommand,
     at path: String = ".",
-    process: Process = .init(),
+//     process: Process = .init(),
     outputHandle: FileHandle? = nil,
     errorHandle: FileHandle? = nil
 ) throws -> String {
     return try shellOut(
         to: command.string,
         at: path,
-        process: process,
+//         process: process,
         outputHandle: outputHandle,
         errorHandle: errorHandle
     )
