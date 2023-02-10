@@ -6,7 +6,6 @@
 
 import Foundation
 import Dispatch
-import ShellOut
 
 // MARK: - API
 
@@ -32,13 +31,17 @@ import ShellOut
     to command: String,
     arguments: [String] = [],
     at path: String = ".",
-//     process: Process = .init(),
+    process: Process = .init(),
     outputHandle: FileHandle? = nil,
     errorHandle: FileHandle? = nil
 ) throws -> String {
     let command = "cd \(path.escapingSpaces) && \(command) \(arguments.joined(separator: " "))"
 
-    return 
+    return try process.launchBash(
+        with: command,
+        outputHandle: outputHandle,
+        errorHandle: errorHandle
+    )
 }
 
 /**
@@ -61,7 +64,7 @@ import ShellOut
 @discardableResult public func shellOut(
     to commands: [String],
     at path: String = ".",
-     process: Process = .init(),
+    process: Process = .init(),
     outputHandle: FileHandle? = nil,
     errorHandle: FileHandle? = nil
 ) throws -> String {
@@ -70,7 +73,7 @@ import ShellOut
     return try shellOut(
         to: command,
         at: path,
-         process: process,
+        process: process,
         outputHandle: outputHandle,
         errorHandle: errorHandle
     )
@@ -375,59 +378,7 @@ extension ShellOutError: LocalizedError {
 
 // MARK: - Private
 
-
-private extension FileHandle {
-    var isStandard: Bool {
-        return self === FileHandle.standardOutput ||
-            self === FileHandle.standardError ||
-            self === FileHandle.standardInput
-    }
-}
-
-private extension Data {
-    func shellOutput() -> String {
-        guard let output = String(data: self, encoding: .utf8) else {
-            return ""
-        }
-
-        guard !output.hasSuffix("\n") else {
-            let endIndex = output.index(before: output.endIndex)
-            return String(output[..<endIndex])
-        }
-
-        return output
-
-    }
-}
-
-private extension String {
-    var escapingSpaces: String {
-        return replacingOccurrences(of: " ", with: "\\ ")
-    }
-
-    func appending(argument: String) -> String {
-        return "\(self) \"\(argument)\""
-    }
-
-    func appending(arguments: [String]) -> String {
-        return appending(argument: arguments.joined(separator: "\" \""))
-    }
-
-    mutating func append(argument: String) {
-        self = appending(argument: argument)
-    }
-
-    mutating func append(arguments: [String]) {
-        self = appending(arguments: arguments)
-    }
-}
-
-
-
-extension shellOut{
-    
-    
- public func  Process {
+private extension Process {
     @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
         launchPath = "/bin/bash"
         arguments = ["-c", command]
@@ -504,5 +455,49 @@ extension shellOut{
         }
     }
 }
-    
+
+private extension FileHandle {
+    var isStandard: Bool {
+        return self === FileHandle.standardOutput ||
+            self === FileHandle.standardError ||
+            self === FileHandle.standardInput
+    }
+}
+
+private extension Data {
+    func shellOutput() -> String {
+        guard let output = String(data: self, encoding: .utf8) else {
+            return ""
+        }
+
+        guard !output.hasSuffix("\n") else {
+            let endIndex = output.index(before: output.endIndex)
+            return String(output[..<endIndex])
+        }
+
+        return output
+
+    }
+}
+
+private extension String {
+    var escapingSpaces: String {
+        return replacingOccurrences(of: " ", with: "\\ ")
+    }
+
+    func appending(argument: String) -> String {
+        return "\(self) \"\(argument)\""
+    }
+
+    func appending(arguments: [String]) -> String {
+        return appending(argument: arguments.joined(separator: "\" \""))
+    }
+
+    mutating func append(argument: String) {
+        self = appending(argument: argument)
+    }
+
+    mutating func append(arguments: [String]) {
+        self = appending(arguments: arguments)
+    }
 }
