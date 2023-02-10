@@ -31,7 +31,7 @@ import Dispatch
     to command: String,
     arguments: [String] = [],
     at path: String = ".",
-    process: Process = .init(),
+//     process: Process = .init(),
     outputHandle: FileHandle? = nil,
     errorHandle: FileHandle? = nil
 ) throws -> String {
@@ -64,7 +64,7 @@ import Dispatch
 @discardableResult public func shellOut(
     to commands: [String],
     at path: String = ".",
-    process: Process = .init(),
+//     process: Process = .init(),
     outputHandle: FileHandle? = nil,
     errorHandle: FileHandle? = nil
 ) throws -> String {
@@ -378,83 +378,83 @@ extension ShellOutError: LocalizedError {
 
 // MARK: - Private
 
-private extension Process {
-    @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
-        launchPath = "/bin/bash"
-        arguments = ["-c", command]
+// private extension Process {
+//     @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
+//         launchPath = "/bin/bash"
+//         arguments = ["-c", command]
 
-        // Because FileHandle's readabilityHandler might be called from a
-        // different queue from the calling queue, avoid a data race by
-        // protecting reads and writes to outputData and errorData on
-        // a single dispatch queue.
-        let outputQueue = DispatchQueue(label: "bash-output-queue")
+//         // Because FileHandle's readabilityHandler might be called from a
+//         // different queue from the calling queue, avoid a data race by
+//         // protecting reads and writes to outputData and errorData on
+//         // a single dispatch queue.
+//         let outputQueue = DispatchQueue(label: "bash-output-queue")
 
-        var outputData = Data()
-        var errorData = Data()
+//         var outputData = Data()
+//         var errorData = Data()
 
-        let outputPipe = Pipe()
-        standardOutput = outputPipe
+//         let outputPipe = Pipe()
+//         standardOutput = outputPipe
 
-        let errorPipe = Pipe()
-        standardError = errorPipe
+//         let errorPipe = Pipe()
+//         standardError = errorPipe
 
-        #if !os(Linux)
-        outputPipe.fileHandleForReading.readabilityHandler = { handler in
-            let data = handler.availableData
-            outputQueue.async {
-                outputData.append(data)
-                outputHandle?.write(data)
-            }
-        }
+//         #if !os(Linux)
+//         outputPipe.fileHandleForReading.readabilityHandler = { handler in
+//             let data = handler.availableData
+//             outputQueue.async {
+//                 outputData.append(data)
+//                 outputHandle?.write(data)
+//             }
+//         }
 
-        errorPipe.fileHandleForReading.readabilityHandler = { handler in
-            let data = handler.availableData
-            outputQueue.async {
-                errorData.append(data)
-                errorHandle?.write(data)
-            }
-        }
-        #endif
+//         errorPipe.fileHandleForReading.readabilityHandler = { handler in
+//             let data = handler.availableData
+//             outputQueue.async {
+//                 errorData.append(data)
+//                 errorHandle?.write(data)
+//             }
+//         }
+//         #endif
 
-        launch()
+//         launch()
 
-        #if os(Linux)
-        outputQueue.sync {
-            outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        }
-        #endif
+//         #if os(Linux)
+//         outputQueue.sync {
+//             outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+//             errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+//         }
+//         #endif
 
-        waitUntilExit()
+//         waitUntilExit()
 
-        if let handle = outputHandle, !handle.isStandard {
-            handle.closeFile()
-        }
+//         if let handle = outputHandle, !handle.isStandard {
+//             handle.closeFile()
+//         }
 
-        if let handle = errorHandle, !handle.isStandard {
-            handle.closeFile()
-        }
+//         if let handle = errorHandle, !handle.isStandard {
+//             handle.closeFile()
+//         }
 
-        #if !os(Linux)
-        outputPipe.fileHandleForReading.readabilityHandler = nil
-        errorPipe.fileHandleForReading.readabilityHandler = nil
-        #endif
+//         #if !os(Linux)
+//         outputPipe.fileHandleForReading.readabilityHandler = nil
+//         errorPipe.fileHandleForReading.readabilityHandler = nil
+//         #endif
 
-        // Block until all writes have occurred to outputData and errorData,
-        // and then read the data back out.
-        return try outputQueue.sync {
-            if terminationStatus != 0 {
-                throw ShellOutError(
-                    terminationStatus: terminationStatus,
-                    errorData: errorData,
-                    outputData: outputData
-                )
-            }
+//         // Block until all writes have occurred to outputData and errorData,
+//         // and then read the data back out.
+//         return try outputQueue.sync {
+//             if terminationStatus != 0 {
+//                 throw ShellOutError(
+//                     terminationStatus: terminationStatus,
+//                     errorData: errorData,
+//                     outputData: outputData
+//                 )
+//             }
 
-            return outputData.shellOutput()
-        }
-    }
-}
+//             return outputData.shellOutput()
+//         }
+//     }
+// }
 
 private extension FileHandle {
     var isStandard: Bool {
