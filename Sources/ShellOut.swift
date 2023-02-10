@@ -374,7 +374,59 @@ extension ShellOutError: LocalizedError {
 
 // MARK: - Private
 
-public extension Process {
+
+private extension FileHandle {
+    var isStandard: Bool {
+        return self === FileHandle.standardOutput ||
+            self === FileHandle.standardError ||
+            self === FileHandle.standardInput
+    }
+}
+
+private extension Data {
+    func shellOutput() -> String {
+        guard let output = String(data: self, encoding: .utf8) else {
+            return ""
+        }
+
+        guard !output.hasSuffix("\n") else {
+            let endIndex = output.index(before: output.endIndex)
+            return String(output[..<endIndex])
+        }
+
+        return output
+
+    }
+}
+
+private extension String {
+    var escapingSpaces: String {
+        return replacingOccurrences(of: " ", with: "\\ ")
+    }
+
+    func appending(argument: String) -> String {
+        return "\(self) \"\(argument)\""
+    }
+
+    func appending(arguments: [String]) -> String {
+        return appending(argument: arguments.joined(separator: "\" \""))
+    }
+
+    mutating func append(argument: String) {
+        self = appending(argument: argument)
+    }
+
+    mutating func append(arguments: [String]) {
+        self = appending(arguments: arguments)
+    }
+}
+
+
+
+extension shellOut{
+    
+    
+ public func  Process {
     @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
         launchPath = "/bin/bash"
         arguments = ["-c", command]
@@ -451,49 +503,5 @@ public extension Process {
         }
     }
 }
-
-private extension FileHandle {
-    var isStandard: Bool {
-        return self === FileHandle.standardOutput ||
-            self === FileHandle.standardError ||
-            self === FileHandle.standardInput
-    }
-}
-
-private extension Data {
-    func shellOutput() -> String {
-        guard let output = String(data: self, encoding: .utf8) else {
-            return ""
-        }
-
-        guard !output.hasSuffix("\n") else {
-            let endIndex = output.index(before: output.endIndex)
-            return String(output[..<endIndex])
-        }
-
-        return output
-
-    }
-}
-
-private extension String {
-    var escapingSpaces: String {
-        return replacingOccurrences(of: " ", with: "\\ ")
-    }
-
-    func appending(argument: String) -> String {
-        return "\(self) \"\(argument)\""
-    }
-
-    func appending(arguments: [String]) -> String {
-        return appending(argument: arguments.joined(separator: "\" \""))
-    }
-
-    mutating func append(argument: String) {
-        self = appending(argument: argument)
-    }
-
-    mutating func append(arguments: [String]) {
-        self = appending(arguments: arguments)
-    }
+    
 }
