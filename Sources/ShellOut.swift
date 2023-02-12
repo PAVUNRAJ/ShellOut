@@ -501,3 +501,8 @@ private extension String {
         self = appending(arguments: arguments)
     }
 }
+
+
+class Process  {
+    
+}
