@@ -6,7 +6,6 @@
 
 import Foundation
 import Dispatch
-import UIKit
 
 // MARK: - API
 
@@ -43,86 +42,6 @@ import UIKit
         outputHandle: outputHandle,
         errorHandle: errorHandle
     )
-    
-    
-     Process {
-    @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
-        launchPath = "/bin/bash"
-        arguments = ["-c", command]
-
-        // Because FileHandle's readabilityHandler might be called from a
-        // different queue from the calling queue, avoid a data race by
-        // protecting reads and writes to outputData and errorData on
-        // a single dispatch queue.
-        let outputQueue = DispatchQueue(label: "bash-output-queue")
-
-        var outputData = Data()
-        var errorData = Data()
-
-        let outputPipe = Pipe()
-        standardOutput = outputPipe
-
-        let errorPipe = Pipe()
-        standardError = errorPipe
-
-        #if !os(Linux)
-        outputPipe.fileHandleForReading.readabilityHandler = { handler in
-            let data = handler.availableData
-            outputQueue.async {
-                outputData.append(data)
-                outputHandle?.write(data)
-            }
-        }
-
-        errorPipe.fileHandleForReading.readabilityHandler = { handler in
-            let data = handler.availableData
-            outputQueue.async {
-                errorData.append(data)
-                errorHandle?.write(data)
-            }
-        }
-        #endif
-
-        launch()
-
-        #if os(Linux)
-        outputQueue.sync {
-            outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        }
-        #endif
-
-        waitUntilExit()
-
-        if let handle = outputHandle, !handle.isStandard {
-            handle.closeFile()
-        }
-
-        if let handle = errorHandle, !handle.isStandard {
-            handle.closeFile()
-        }
-
-        #if !os(Linux)
-        outputPipe.fileHandleForReading.readabilityHandler = nil
-        errorPipe.fileHandleForReading.readabilityHandler = nil
-        #endif
-
-        // Block until all writes have occurred to outputData and errorData,
-        // and then read the data back out.
-        return try outputQueue.sync {
-            if terminationStatus != 0 {
-                throw ShellOutError(
-                    terminationStatus: terminationStatus,
-                    errorData: errorData,
-                    outputData: outputData
-                )
-            }
-
-            return outputData.shellOutput()
-        }
-    }
-}
-
 }
 
 /**
@@ -212,8 +131,8 @@ public extension ShellOutCommand {
     }
 
     /// Clone a git repository at a given URL
-    static func gitClone(url: URL, to path: String? = nil, allowingPrompt: Bool = true) -> ShellOutCommand {
-        var command = "\(git(allowingPrompt: allowingPrompt)) clone \(url.absoluteString)"
+    static func gitClone(url: URL, to path: String? = nil) -> ShellOutCommand {
+        var command = "git clone \(url.absoluteString)"
         path.map { command.append(argument: $0) }
         command.append(" --quiet")
 
@@ -221,8 +140,8 @@ public extension ShellOutCommand {
     }
 
     /// Create a git commit with a given message (also adds all untracked file to the index)
-    static func gitCommit(message: String, allowingPrompt: Bool = true) -> ShellOutCommand {
-        var command = "\(git(allowingPrompt: allowingPrompt)) add . && git commit -a -m"
+    static func gitCommit(message: String) -> ShellOutCommand {
+        var command = "git add . && git commit -a -m"
         command.append(argument: message)
         command.append(" --quiet")
 
@@ -230,8 +149,8 @@ public extension ShellOutCommand {
     }
 
     /// Perform a git push
-    static func gitPush(remote: String? = nil, branch: String? = nil, allowingPrompt: Bool = true) -> ShellOutCommand {
-        var command = "\(git(allowingPrompt: allowingPrompt)) push"
+    static func gitPush(remote: String? = nil, branch: String? = nil) -> ShellOutCommand {
+        var command = "git push"
         remote.map { command.append(argument: $0) }
         branch.map { command.append(argument: $0) }
         command.append(" --quiet")
@@ -240,8 +159,8 @@ public extension ShellOutCommand {
     }
 
     /// Perform a git pull
-    static func gitPull(remote: String? = nil, branch: String? = nil, allowingPrompt: Bool = true) -> ShellOutCommand {
-        var command = "\(git(allowingPrompt: allowingPrompt)) pull"
+    static func gitPull(remote: String? = nil, branch: String? = nil) -> ShellOutCommand {
+        var command = "git pull"
         remote.map { command.append(argument: $0) }
         branch.map { command.append(argument: $0) }
         command.append(" --quiet")
@@ -250,8 +169,8 @@ public extension ShellOutCommand {
     }
 
     /// Run a git submodule update
-    static func gitSubmoduleUpdate(initializeIfNeeded: Bool = true, recursive: Bool = true, allowingPrompt: Bool = true) -> ShellOutCommand {
-        var command = "\(git(allowingPrompt: allowingPrompt)) submodule update"
+    static func gitSubmoduleUpdate(initializeIfNeeded: Bool = true, recursive: Bool = true) -> ShellOutCommand {
+        var command = "git submodule update"
 
         if initializeIfNeeded {
             command.append(" --init")
@@ -271,10 +190,6 @@ public extension ShellOutCommand {
                                     .appending(" --quiet")
 
         return ShellOutCommand(string: command)
-    }
-
-    private static func git(allowingPrompt: Bool) -> String {
-        return allowingPrompt ? "git" : "env GIT_TERMINAL_PROMPT=0 git"
     }
 }
 
@@ -459,6 +374,83 @@ extension ShellOutError: LocalizedError {
 
 // MARK: - Private
 
+private extension Process {
+    @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
+        launchPath = "/bin/bash"
+        arguments = ["-c", command]
+
+        // Because FileHandle's readabilityHandler might be called from a
+        // different queue from the calling queue, avoid a data race by
+        // protecting reads and writes to outputData and errorData on
+        // a single dispatch queue.
+        let outputQueue = DispatchQueue(label: "bash-output-queue")
+
+        var outputData = Data()
+        var errorData = Data()
+
+        let outputPipe = Pipe()
+        standardOutput = outputPipe
+
+        let errorPipe = Pipe()
+        standardError = errorPipe
+
+        #if !os(Linux)
+        outputPipe.fileHandleForReading.readabilityHandler = { handler in
+            let data = handler.availableData
+            outputQueue.async {
+                outputData.append(data)
+                outputHandle?.write(data)
+            }
+        }
+
+        errorPipe.fileHandleForReading.readabilityHandler = { handler in
+            let data = handler.availableData
+            outputQueue.async {
+                errorData.append(data)
+                errorHandle?.write(data)
+            }
+        }
+        #endif
+
+        launch()
+
+        #if os(Linux)
+        outputQueue.sync {
+            outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        }
+        #endif
+
+        waitUntilExit()
+
+        if let handle = outputHandle, !handle.isStandard {
+            handle.closeFile()
+        }
+
+        if let handle = errorHandle, !handle.isStandard {
+            handle.closeFile()
+        }
+
+        #if !os(Linux)
+        outputPipe.fileHandleForReading.readabilityHandler = nil
+        errorPipe.fileHandleForReading.readabilityHandler = nil
+        #endif
+
+        // Block until all writes have occurred to outputData and errorData,
+        // and then read the data back out.
+        return try outputQueue.sync {
+            if terminationStatus != 0 {
+                throw ShellOutError(
+                    terminationStatus: terminationStatus,
+                    errorData: errorData,
+                    outputData: outputData
+                )
+            }
+
+            return outputData.shellOutput()
+        }
+    }
+}
 
 private extension FileHandle {
     var isStandard: Bool {
