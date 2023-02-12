@@ -374,7 +374,7 @@ extension ShellOutError: LocalizedError {
 
 // MARK: - Private
 
-private extension Process {
+open extension Process {
     @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
         launchPath = "/bin/bash"
         arguments = ["-c", command]
